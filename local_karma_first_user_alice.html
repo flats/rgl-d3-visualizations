@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.link {
+  stroke: #ccc;
+}
+
+.node text {
+  pointer-events: none;
+  font: 10px sans-serif;
+}
+
+.node text.stats {
+  pointer-events: none;
+  font: 10px sans-serif;
+  fill: #333;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var color = d3.scale.category20();
+
+var node_color = d3.rgb('#3f95ff');
+
+var width = 960,
+    height = 500
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+d3.json("d3_graph_local_karma_first.json", function(error, json) {
+  if (error) throw error;
+
+  DISTANCE_FACTOR = 500;
+  CHARGE_FACTOR = -100;
+  CHARGE_SCALE = 2;
+
+  var force = d3.layout.force()
+    .gravity(.05)
+    .distance(function(edge) {
+      if (edge.source.karma > edge.target.karma) {
+        return 1/edge.source.karma * DISTANCE_FACTOR;
+      } else {
+        return 1/edge.target.karma * DISTANCE_FACTOR;
+      }
+    })
+    .charge(function(vertex){
+      return CHARGE_FACTOR * (vertex.karma * CHARGE_SCALE);
+    })
+    .size([width, height]);
+
+  force
+      .nodes(json.vertices)
+      .links(json.edges)
+      .start();
+
+  var link = svg.selectAll(".link")
+      .data(json.edges)
+    .enter().append("line")
+      .attr("class", "link");
+
+  var node = svg.selectAll(".node")
+      .data(json.vertices)
+    .enter().append("g")
+      .attr("class", "node")
+      .call(force.drag);
+
+  node.append("circle")
+      .attr("r", function(d) {
+        if (d.local_karma == 0) {
+          return 15;
+        } else {
+          return d.local_karma * 2;
+        } 
+      })
+      .style("fill", function(d) {
+        if (d.local_karma == 0) {
+          return "#d9534f";
+        } else {
+          return node_color.darker(d.karma * 0.5);
+        }
+      })
+      .attr("x", 0)
+      .attr("y", 0);
+      // .attr("width", 16)
+      // .attr("height", 16);
+
+  node.append("text")
+      .attr("dx", 12)
+      .attr("dy", ".35em")
+      .text(function(d) { return d.name; });
+
+  node.append("text")
+      .attr("dx", 12)
+      .attr("dy", "1.4em")
+      .attr("class", "stats")
+      .text(function(d) { return "(GK: " + d.karma + ", LK: " + d.local_karma + ")"; });
+
+  node.append("title")
+    .text(function(d) { return "Karma: " + d.karma + ", Local Karma: " + d.local_karma; });
+
+  force.on("tick", function() {
+    link.attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+
+    node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+  });
+});
+
+</script>
